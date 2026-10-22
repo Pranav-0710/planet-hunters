@@ -44,7 +44,7 @@ def _chunk(args: tuple[str, int, int]) -> list[dict]:
         c = np.asarray(clean[i], np.float64)
         try:
             tr, ephem = transit_features(t, f, dump_times)
-            ce = centroid_features(t, f, np.asarray(cen[i], np.float64), ephem)
+            ce = centroid_features(t, f, np.asarray(cen[i], np.float64), ephem, np.where((q & 1) > 0)[0])
             va = variability_features(t, c, np.asarray(slow[i], np.float64), f)
             gl = glitch_features(c, tr["fast_sig"], gap)
             rows.append({**tr, **ce, **va, **gl})
@@ -68,7 +68,7 @@ def _chunk_short(args: tuple[str, int, int]) -> list[dict]:
     for j, i in enumerate(range(start, stop)):
         try:
             tr, ephem = transit_features(t, fast[j], dump_times, durations=SHORT_DURATIONS)
-            ce = centroid_features(t, fast[j], np.asarray(cen[i], np.float64), ephem)
+            ce = centroid_features(t, fast[j], np.asarray(cen[i], np.float64), ephem, np.where((cad.quality.to_numpy() & 1) > 0)[0])
             rows.append({f"s_{k}": v for k, v in {**tr, **ce}.items()})
         except Exception as exc:  # one bad star must not kill the run; it gets NaN features
             print(f"{name}[{i}] short failed: {exc}", flush=True)
