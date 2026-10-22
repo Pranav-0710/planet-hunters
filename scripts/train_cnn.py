@@ -118,10 +118,11 @@ def main() -> None:
     ap.add_argument("--epochs", type=int, default=12)
     ap.add_argument("--folds", type=int, nargs="+", default=[0, 1, 2, 3, 4])
     ap.add_argument("--name", default="cnn")
+    ap.add_argument("--seed", type=int, default=SEED)
     args = ap.parse_args()
     torch.set_num_threads(16)
-    torch.manual_seed(SEED)
-    rng = np.random.default_rng(SEED)
+    torch.manual_seed(args.seed)
+    rng = np.random.default_rng(args.seed)
 
     tr, te = build_inputs("train"), build_inputs("test")
     mu, sd = tr["meta"].mean(0), tr["meta"].std(0) + 1e-6
