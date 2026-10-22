@@ -5,7 +5,7 @@ Two views per star:
   folded: fast and centroids folded on the BLS period into 128 phase bins, dip centered
 plus star properties. Same 5 folds as LightGBM. Writes oof/cnn_{oof,test}.csv.
 
-Usage: python scripts/train_cnn.py [--epochs 14] [--folds 0 1 2 3 4]
+Usage: python scripts/train_cnn.py [--epochs 12] [--folds 0 1 2 3 4]
 """
 
 import argparse
@@ -27,6 +27,7 @@ CACHE = DATA / "cache"
 META = ["tmag", "teff", "logg", "radius", "contamination"]
 N_BINS = 128
 CLIP = 20.0
+GLOBAL_POOL = 2
 
 
 def _robust_sig(x: np.ndarray) -> np.ndarray:
@@ -78,15 +79,17 @@ def block(cin: int, cout: int, k: int = 7) -> nn.Sequential:
 
 
 class Net(nn.Module):
+    """Sized for a laptop CPU: the global view is averaged into 1-hour bins; the folded view keeps full detail."""
+
     def __init__(self, n_meta: int):
         super().__init__()
-        self.glob = nn.Sequential(block(5, 32), block(32, 48), block(48, 64), block(64, 96), block(96, 128))
-        self.fold = nn.Sequential(block(3, 32, 5), block(32, 64, 5), block(64, 96, 5))
-        self.head = nn.Sequential(nn.Linear(2 * 128 + 2 * 96 + n_meta, 256), nn.GELU(), nn.Dropout(0.3),
-                                  nn.Linear(256, len(LABELS)))
+        self.glob = nn.Sequential(block(5, 16, 5), block(16, 32, 5), block(32, 48, 5), block(48, 64, 5))
+        self.fold = nn.Sequential(block(3, 16, 5), block(16, 32, 5), block(32, 64, 5))
+        self.head = nn.Sequential(nn.Linear(2 * 64 + 2 * 64 + n_meta, 128), nn.GELU(), nn.Dropout(0.3),
+                                  nn.Linear(128, len(LABELS)))
 
     def forward(self, g: torch.Tensor, f: torch.Tensor, m: torch.Tensor) -> torch.Tensor:
-        a = self.glob(g)
+        a = self.glob(nn.functional.avg_pool1d(g, GLOBAL_POOL))
         b = self.fold(f)
         z = torch.cat([a.mean(-1), a.amax(-1), b.mean(-1), b.amax(-1), m], dim=1)
         return self.head(z)
@@ -112,11 +115,11 @@ def predict(model: Net, g: np.ndarray, f: np.ndarray, m: np.ndarray, bs: int = 5
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--epochs", type=int, default=14)
+    ap.add_argument("--epochs", type=int, default=12)
     ap.add_argument("--folds", type=int, nargs="+", default=[0, 1, 2, 3, 4])
     ap.add_argument("--name", default="cnn")
     args = ap.parse_args()
-    torch.set_num_threads(12)
+    torch.set_num_threads(16)
     torch.manual_seed(SEED)
     rng = np.random.default_rng(SEED)
 
