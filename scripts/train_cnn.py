@@ -116,7 +116,7 @@ def main() -> None:
     ap.add_argument("--folds", type=int, nargs="+", default=[0, 1, 2, 3, 4])
     ap.add_argument("--name", default="cnn")
     args = ap.parse_args()
-    torch.set_num_threads(16)
+    torch.set_num_threads(12)
     torch.manual_seed(SEED)
     rng = np.random.default_rng(SEED)
 
