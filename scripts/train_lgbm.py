@@ -38,7 +38,12 @@ def load_features(name: str) -> pd.DataFrame:
     star = pd.read_csv(CACHE / f"{name}_feat_star.csv")
     blocks = pd.concat([stat_block(clean, "clean_"), stat_block(fast, "fast_")], axis=1)
     star = star.drop(columns=[c for c in star.columns if c in blocks.columns or c in DROP])
-    return pd.concat([blocks, star, stars[META]], axis=1)
+    parts = [blocks, star]
+    short_path = CACHE / f"{name}_feat_short.csv"
+    if short_path.exists():
+        short = pd.read_csv(short_path)
+        parts.append(short.drop(columns=[c for c in short.columns if c.removeprefix("s_") in DROP]))
+    return pd.concat([*parts, stars[META]], axis=1)
 
 
 def cv(X: pd.DataFrame, y: np.ndarray, X_test: pd.DataFrame, folds: np.ndarray, w: np.ndarray):
